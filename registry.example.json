@@ -1,4 +1,5 @@
 {
+  "_read_me_first": "Copy this file to registry.json, then change only: cmd (real paths, engine exe or python FIRST), cwd, the backend port, log, and models[].id/label/needs_mib. Windows paths need DOUBLE backslashes (X:\\llama-cpp shows one) or forward slashes (X:/llama-cpp), and no comma after the last item - a single slip makes run-router.bat flash and close. needs_mib is roughly model-file-size-GB x 1000 + 2000. The 'id' must be the exact name the engine itself uses (llama.cpp: --alias or the INI section name). A Strata 'cmd' must always include --engine strata: without it Strata defaults to a mock engine that answers happily and generates nothing. Full walkthrough and an error-message table: GETTING-STARTED.md. The router ignores this line.",
   "port": 8090,
   "backends": [
     {

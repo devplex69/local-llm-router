@@ -14,15 +14,21 @@ model, it stops whatever is resident, waits for the VRAM to actually come back, 
 
 ```
    your apps ── :8090 ──► proxy.py ──► llama.cpp router  :8082   (many presets, one loaded)
-        one port          one GPU       engine A          :8085
-         at a time                    engine B          :8086
+        one port          one GPU       a second engine   :8085    (back-end ports are yours
+         at a time                    a third             :8087     to pick in registry.json)
 ```
 
 Everything is stdlib Python — no pip install, no database, no Node.
 
+**Never done this before?** Read [GETTING-STARTED.md](GETTING-STARTED.md) instead of the Quick start below. It covers
+installing an engine, how to check each of your prerequisites, what every field in `registry.json` is for, a table that
+matches the exact error message you can see to the thing to do about it, and a plain-language glossary. The Quick start
+assumes you already have llama.cpp or Strata answering on its own port.
+
 
 ## Quick start
 
+0. If no engine starts on this machine yet, stop here and do [GETTING-STARTED.md](GETTING-STARTED.md) sections 2-3.
 1. Copy `registry.example.json` to `registry.json`.
 2. Put your own engine paths and model ids in it (see [registry.json](#registryjson) below).
 3. `run-router.bat` (or `python proxy.py`).
@@ -96,7 +102,7 @@ else's answer.
 |---|---|
 | `GET  /` | chat UI with the model picker |
 | `GET  /about` | every backend's real startup flags, config file and live status |
-| `GET  /monitor` | live tile feed: GPU, CPU, RAM, tokens/s, in-flight request |
+| `GET  /monitor` | an **alias for `/about`** - same page, both routes serve it. The hardware tiles live on it; the per-second numbers come from `/router/metrics` below |
 | `GET  /v1/models` | all registered models, tagged `hot` / `idle` / `cold` |
 | `GET  /router/state` | backend detail the UI polls (pid, status, busy count, recent events) |
 | `GET  /router/metrics` | the Monitor feed; served from caches so it can be polled every second |
@@ -176,6 +182,53 @@ reports `busy`, then fires a request for a cold model and shows the clean `409` 
   with something that does auth.
 
 
+## Which engine versions this works with
+
+The router does not link against an engine, so it is not version-locked — it only has to be able to *start* one, and
+then talk OpenAI-shaped HTTP to it. What that means in practice, per engine:
+
+### Strata
+
+Strata's version numbers moved from the `0.1.x` line to `0.2.x`, and the engine packages are versioned separately from
+the app, so it is worth being specific. I read `serve/server.py` at three tags — `v0.1.13` (70,835 bytes / 1,330
+lines), `v0.1.45` (430,671 / 7,159) and `v0.2.3.1` (520,530 / 8,607) — and compared the argument parser:
+
+- **The three flags a registry `cmd` needs — `--engine`, `--config`, `--port` — exist at all three tags.** A backend
+  block written against an older Strata still starts on a newer one.
+- **`--config` means the same thing at all three**: its help text is byte-identical — *"strata engine config (JSON: exe,
+  args, cwd, tokenizer, model_name), written by setup.py"*. So let Strata's own setup write that file; don't hand-roll it.
+- **`--engine` defaults to `mock`, at every version.** That is the one way to get a confidently-wrong setup: drop the
+  flag and the engine starts, answers `/health`, and produces tokens — from a fake engine. The router's liveness probe
+  cannot catch that, because it only checks that real tokens come back. Always pass `--engine strata` explicitly.
+- **Newer flags you can leave alone, and two you should not.** Checked defaults at `v0.2.3.1`:
+  `--min-free-vram-mib` defaults to *none* ("always load"); `--idle-unload` defaults to *never*; `--api-key` defaults to
+  `$STRATA_API_KEY` or empty, i.e. no key required. Leave them at their defaults. Set `--min-free-vram-mib` only if you
+  also *lower* the router's `needs_mib` below it, or the router will consider the card ready while the engine answers
+  503 to the load. And if you export `STRATA_API_KEY` globally, name the key in that backend's `cmd` too — the router
+  forwards whatever your client sent, and clients sending `api_key="not-needed"` will be refused by the engine.
+- `--replicas`, `--parallel`, `--max-queue` change the engine from one-at-a-time to many-at-a-time. The router still
+  works — but its `409 engine_busy` refusal is the router's policy, not the engine's, so a swap guard you set up for
+  one slot no longer describes what the engine will accept.
+- The UI in this repo was copied from `v0.1.13` and is labelled as such in `THIRD_PARTY_LICENSES.md`; the newer tags
+  still ship `serve/web/tokens.css` / `components.css` / `app.css`, but these files were not re-synced to them.
+
+### llama.cpp
+
+`registry.example.json` uses router mode (`--models-preset` + `--models-max 1`), which is what makes one llama.cpp
+engine serve several models. Verified present, from `llama-server.exe --help` on build **b11201**, the build this was
+developed against: `--models-preset`, `--models-max`, and `-a, --alias` (*"set model name aliases, comma-separated (to
+be used by API)"*). Router mode is the newer part, so **check before you copy that block**: run
+`llama-server.exe --help | findstr models-preset`. If your build does not list it, don't upgrade llama.cpp for this —
+give each model its own backend block with a plain `-m <file> --alias <id> --port <n>` command. That works on any build
+and the router handles the swapping exactly the same; the only loss is sharing one process across models.
+
+### What is honest here
+
+**Run** on: Windows 11, RTX 4090, one llama.cpp CUDA build (b11201) and Strata 0.1.x. Everything in the Strata list
+above comes from reading `serve/server.py` at those tags — `v0.2.3.1` itself has not been started behind this router on
+my machine. If you do run it there and something has moved, that is worth an issue.
+
+
 ## Notable limits
 
 - **Only the endpoints listed above are routed.** `/v1/completions`, `/v1/embeddings`, `/v1/models/<x>/...` and
@@ -196,6 +249,7 @@ reports `busy`, then fires a request for a cold model and shows the clean `409` 
 
 | | |
 |---|---|
+| `GETTING-STARTED.md` | the no-coding walkthrough: prerequisites, installing an engine, every `registry.json` field, error-message table, glossary |
 | `proxy.py` | the router: engine lifecycle, VRAM gate, routing, SSE relay, both API shapes |
 | `telemetry.py` | NVML + OS hardware sampler for the Monitor tab; optional, the page degrades without it. Verbatim Strata code (MIT) - see `THIRD_PARTY_LICENSES.md` |
 | `registry.example.json` | template — copy to `registry.json` |

@@ -12,6 +12,9 @@ echo  NOT touched: unrelated python jobs, ollama, browsers, IDEs, Docker.
 echo  Add -Report to list what would be stopped without stopping it:
 echo     stop-all.bat -Report
 echo.
+echo  Stuck on an error message instead? GETTING-STARTED.md, section 6, matches the
+echo  exact words the router prints to the thing to do about it.
+echo.
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0stop-all.ps1" %*
 
