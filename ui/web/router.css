@@ -1,0 +1,69 @@
+/* Router additions on top of the base sheets (tokens.css + components.css + app.css).
+   Everything here is either something the tokens have no primitive for (a select, an engine chip, the
+   indeterminate load bar) or a tab rendered as a link. Colours and sizes still come only from the tokens. */
+
+/* the bar under the header: model picker, one-click wake, engine status, swap countdown */
+.router-bar { flex: none; display: flex; flex-direction: column; gap: var(--st-s-3);
+              padding: var(--st-s-4) var(--st-s-5); background: var(--st-surface); border-bottom: 1px solid var(--st-line); }
+.router-bar__row { display: flex; align-items: center; gap: var(--st-s-3); flex-wrap: wrap; }
+.router-bar select.st-input { flex: 1 1 320px; min-width: 0; max-width: 560px; }
+.router-bar__hint { font-size: var(--st-fs-xs); color: var(--st-ink-muted); }
+
+/* a <select> is not in the kit, so it borrows .st-input and gets its own chevron */
+select.st-input { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 36px;
+                  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b95a1' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+                  background-repeat: no-repeat; background-position: right 12px center; }
+
+/* one chip per engine: which of them holds the GPU right now */
+.chips { display: flex; gap: var(--st-s-2); flex-wrap: wrap; align-items: center; }
+.st-badge--hot { background: var(--st-accent-tint); color: var(--st-accent-text); border-color: transparent; }
+.st-badge--idle { background: var(--st-warn-tint); color: var(--st-warn-text); border-color: transparent; }
+.st-badge--cold { opacity: .45; }
+.chip__port { font-variant-numeric: tabular-nums; opacity: .7; }
+
+/* the swap countdown: one line that must never look like a frozen page */
+.swap-line { display: flex; align-items: center; gap: var(--st-s-2); min-height: 1.4em;
+             font-size: var(--st-fs-sm); color: var(--st-warn-text); font-variant-numeric: tabular-nums; }
+.swap-line.ok { color: var(--st-accent-text); }
+.swap-line.err { color: var(--st-danger-text); }
+
+/* an engine that is loading has no percentage we could know, so the bar slides instead of filling */
+.st-progress--busy { overflow: hidden; }
+.st-progress--busy .st-progress__bar { width: 32% !important; animation: router-slide 1.5s linear infinite; }
+@keyframes router-slide { from { transform: translateX(-110%); } to { transform: translateX(340%); } }
+.st-progress[data-tone="busy"] .st-progress__bar { background: var(--st-warn); }
+
+/* tab as a link (Backends lives on its own page) */
+a.st-tab { color: var(--st-ink-muted); text-decoration: none; }
+a.st-tab:hover { color: var(--st-ink); }
+a.st-tab[aria-selected="true"] { color: var(--st-ink); }
+
+/* an engine being woken is the router's own state, and the kit's pill has no word for it */
+.st-pill[data-state="loading"] .st-pill__dot { background: var(--st-warn); box-shadow: 0 0 0 4px var(--st-warn-tint); }
+.st-badge--loading { background: var(--st-warn-tint); color: var(--st-warn-text); border-color: transparent; }
+
+/* engines table wants a status column that reads at a glance */
+#engine-body .st-badge { margin-right: 0; }
+.log-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px;
+            font: 400 12px/1.5 var(--st-font-mono); color: var(--st-ink-muted); max-height: 220px; overflow-y: auto; }
+.log-list b { color: var(--st-ink-soft); font-weight: var(--st-fw-medium); }
+
+/* the kit has no inline code chip; these pages are full of model ids and paths */
+code { font: 400 .9em var(--st-font-mono); background: var(--st-surface-2); border: 1px solid var(--st-line-soft);
+       border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+
+/* the Backends page: one card per engine, parameters as chips */
+.be-card { display: flex; flex-direction: column; gap: var(--st-s-3); }
+.be-card__head { display: flex; align-items: center; gap: var(--st-s-3); flex-wrap: wrap; }
+.be-card__lbl { font-size: var(--st-fs-xs); font-weight: var(--st-fw-bold); letter-spacing: .04em;
+                text-transform: uppercase; color: var(--st-ink-muted); margin-top: var(--st-s-2); }
+.params { display: flex; flex-wrap: wrap; gap: 6px; }
+.params code { font-size: 11px; }
+
+/* the chat view has a bar above it, so the empty state sits a little lower than Strata's own */
+.view--chat .chat-empty { margin-top: var(--st-s-10); }
+@media (max-width: 640px) {
+  .router-bar { padding: var(--st-s-3); gap: var(--st-s-2); }
+  .router-bar select.st-input { flex-basis: 100%; max-width: none; }
+  .router-bar .st-btn { height: 38px; padding: 0 14px; }
+}

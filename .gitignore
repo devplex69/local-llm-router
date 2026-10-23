@@ -1,0 +1,11 @@
+# your machine's engine paths and model stack - never commit this
+registry.json
+
+# engine logs the router appends to
+logs/
+*.log
+
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

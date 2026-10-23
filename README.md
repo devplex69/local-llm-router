@@ -1,0 +1,224 @@
+# local-llm-router
+
+One HTTP port in front of several local LLM engines, on a machine with one GPU.
+
+The problem it solves: you have llama.cpp on one port, a second engine on another, and maybe a third build for
+experimenting. Every chat app wants `http://127.0.0.1:<port>/v1`, and every one of those engines wants the whole
+graphics card. Starting a second engine without stopping the first does not fail cleanly — on a 24 GB card a
+30 GB load just stalls, both processes report a healthy port, and the driver hands back 0 MiB free.
+
+This router takes the front door (`:8090`), keeps every engine's port behind it, and owns the handover: pick a
+model, it stops whatever is resident, waits for the VRAM to actually come back, starts the engine you asked for,
+**proves it can generate tokens**, and only then forwards your message. Your other server is never left in a half
+-loaded state, and nothing you did not register is ever killed.
+
+```
+   your apps ── :8090 ──► proxy.py ──► llama.cpp router  :8082   (many presets, one loaded)
+        one port          one GPU       engine A          :8085
+         at a time                    engine B          :8086
+```
+
+Everything is stdlib Python — no pip install, no database, no Node.
+
+
+## Quick start
+
+1. Copy `registry.example.json` to `registry.json`.
+2. Put your own engine paths and model ids in it (see [registry.json](#registryjson) below).
+3. `run-router.bat` (or `python proxy.py`).
+4. Open <http://127.0.0.1:8090>.
+
+The first request to a cold model waits for its engine to load — seconds for a small GGUF, a minute or more for a
+big MoE pack. The UI shows a live countdown while that happens, and streaming requests get SSE keepalive comments
+so the client's own timeout never fires.
+
+
+## Why it refuses to run two engines
+
+Two rules do most of the work, and both come from being burned:
+
+**Liveness is proven by tokens, not by a port.** Several engine wrappers answer `/health` with `200 ok` from a thin
+Python layer even when the model server behind them died or is still loading. So the router never trusts a status
+endpoint: after starting a backend it sends a four-token completion and only marks the engine `hot` once real
+tokens come back. A backend that answers `/v1/models` but cannot decode is restarted rather than routed to.
+
+**A swap waits for free VRAM, and refuses while another request is mid-answer.** The gate is *relative* — "does the
+card have `needs_mib` free right now" — not absolute, because a desktop with browsers and overlays open was
+measured holding 6.8 GB on its own and that would block every load forever. If a generation is in flight on the
+resident engine, a conflicting request gets a clean `409 engine_busy` instead of a kill that truncates someone
+else's answer.
+
+
+## registry.json
+
+```jsonc
+{
+  "port": 8090,                  // the one front door
+  "backends": [
+    {
+      "name": "llama-router",    // shown in the UI, used by /router/state
+      "kind": "llama",           // "llama" or anything else — see below, it changes status reporting
+      "port": 8082,              // this backend's own port, behind the front door
+      "cwd": "X:\\llama-cpp",
+      "needs_mib": 16500,        // free VRAM this engine needs before it is worth starting
+      "ready_timeout": 900,      // seconds to wait for the engine to prove it can decode
+      "log": "X:\\router\\logs\\llama-router.log",
+      "cmd": ["X:\\llama-cpp\\llama-server.exe", "--port", "8082", ...],
+      "models": [
+        { "id": "example-27b", "needs_mib": 16500, "label": "what the picker shows" },
+        { "id": "example-9b",  "needs_mib": 7000,  "label": "same engine, smaller model" }
+      ]
+    }
+  ]
+}
+```
+
+- **`kind`** is the only behavioural switch. `"llama"` means "one server process that can host many models but only
+  ever has one loaded", so the router asks `/v1/models` for per-model load status and reports unloaded presets as
+  `idle` instead of `hot`. Any other value means "a single-model server": up means hot. Add more engines by copying
+  a block and changing `name`, `port` and `cmd`.
+- **`models[].id` must be the id the backend itself serves**, because it is passed through to the engine's
+  `/v1/chat/completions` unchanged. With a llama.cpp `--models-preset` ini, the section names are the ids.
+- **`needs_mib`** is a measured number, not a guess — a 27B Q3 needs roughly 16.5 GB free on a 24 GB card with a
+  desktop running. Too low and the engine starts and then thrashes or OOMs; too high and the router waits for
+  memory that will never free up.
+- Model `label`s are pure UI text. Put the honest one-line tradeoff there ("slower, but better at prose") — the
+  picker is where you remember why you have four arms of the same model.
+- A preset added to the engine after the proxy started is discovered on first use, so you can edit the llama.cpp
+  preset file without restarting the router.
+- **`registry.json` is git-ignored** — it is your machine's paths and model stack. Keep the real one out of a
+  public repo; `registry.example.json` is the template that ships.
+
+
+## Endpoints
+
+| | |
+|---|---|
+| `GET  /` | chat UI with the model picker |
+| `GET  /about` | every backend's real startup flags, config file and live status |
+| `GET  /monitor` | live tile feed: GPU, CPU, RAM, tokens/s, in-flight request |
+| `GET  /v1/models` | all registered models, tagged `hot` / `idle` / `cold` |
+| `GET  /router/state` | backend detail the UI polls (pid, status, busy count, recent events) |
+| `GET  /router/metrics` | the Monitor feed; served from caches so it can be polled every second |
+| `GET  /about.json` | raw data behind /about, including each engine's live facts |
+| `POST /router/load` | `{"model": "<id>"}` — warm an engine without sending a chat |
+| `POST /router/stop` | stop every engine and free the GPU |
+| `POST /v1/chat/completions` | routed by `model`; streams SSE, keepalive comments during a cold swap |
+| `POST /v1/messages` | Anthropic-shaped, forwarded to a `kind: strata`-style backend that speaks it |
+| `GET  /health` | `{status, hot[], swapping}` — note this is the *router's* health, not an engine's |
+
+`/router/load` and `/router/stop` are what you script. To warm a model before a work session:
+
+```sh
+curl -s -X POST http://127.0.0.1:8090/router/load -H "Content-Type: application/json" \
+     -d '{"model":"example-27b"}'
+```
+
+
+## Pointing clients at it
+
+One base URL for all of them — `http://127.0.0.1:8090/v1` — and the model id picks the engine. The router binds
+both `127.0.0.1` and `::1` on the loopback, because some clients resolve `localhost` to `::1` first and never fall
+back.
+
+```python
+# OpenAI SDK / anything built on it
+from openai import OpenAI
+client = OpenAI(base_url="http://127.0.0.1:8090/v1", api_key="not-needed")
+client.chat.completions.create(model="example-27b", messages=[{"role": "user", "content": "hi"}])
+```
+
+```jsonc
+// Claude Code / Anthropic-style: base URL without /v1
+{ "ANTHROPIC_BASE_URL": "http://127.0.0.1:8090", "ANTHROPIC_API_KEY": "not-needed" }
+```
+
+For tools that let you name a model per profile (Open WebUI, Continue, silo, aider), make one profile per model id
+and the router handles which engine actually has to be awake. `busytest.py` is a small script that proves the
+mid-answer refusal works: it starts a long generation on the hot engine, polls `/router/state` until that backend
+reports `busy`, then fires a request for a cold model and shows the clean `409` instead of a truncated answer.
+
+
+## The three safety behaviours worth knowing
+
+1. **A listener it did not register is never killed.** Before stopping anything the router resolves the PIDs on
+   the port and compares their executable path and command line against the backend's own. Docker Desktop was
+   found holding a port this router would otherwise have used; the old port-based kill would have force-removed it
+   and its whole tree during an ordinary model swap. Foreign listeners produce a `NOT killing :<port>` event and a
+   500 that tells you what to close or re-map.
+2. **Engines you started by hand are adopted, and shown as adopted.** If a backend's port is already answering
+   when the router comes up, it is used and reported with its real PID and an `adopted` flag rather than
+   double-started.
+3. **Killing is by bare PID, never a process tree, for the proxy itself.** `taskkill /T` on the proxy takes the
+   loaded model child down with it in a way that can leave the GPU allocation half-released. `stop-all.ps1` asks
+   the proxy to release engines first, then terminates leftovers by PID, and re-checks every port afterwards.
+
+`stop-all.ps1` reads the same `registry.json`, so it only ever touches processes your registry describes. Run
+`stop-all.bat -Report` first: it prints exactly what it would kill and what holds GPU memory, and changes nothing.
+
+
+## Requirements and what is actually tested
+
+- **Windows.** The lifecycle code calls `netstat -ano`, `taskkill`, `Get-CimInstance Win32_Process` and
+  `subprocess`'s Windows-only `creationflags`. It will not run on Linux as written — that is a port, not a bug you
+  can config around.
+- **NVIDIA**, for the VRAM gate and the hardware tiles (`nvidia-smi`, and NVML through `ctypes` for the Monitor
+  tab). Without `nvidia-smi` the free-VRAM gate degrades to "start anyway", so a swap can OOM instead of waiting.
+- **Python 3.9+**, standard library only. `psutil` is used for CPU/disk readings if already installed and
+  ignored if not; nothing needs `pip install`.
+- **One GPU.** This is a single-card tool. With two cards you want a scheduler, not this.
+- **Developed and tested on one machine:** RTX 4090 24 GB, i9-13900K, 128 GB RAM, Windows 11, against a llama.cpp
+  CUDA router build and two versions of one MoE engine. The two engines it was built around are llama.cpp and
+  Strata; anything else is registered the same way but I have not run it, so expect to check `needs_mib` and
+  `ready_timeout` for your own engine rather than trusting mine.
+- It binds loopback only and has **no authentication**. Anyone who can reach that port can load your models and
+  run them. That is fine on your own desktop and not fine on a shared network — keep it on `127.0.0.1`, or front it
+  with something that does auth.
+
+
+## Notable limits
+
+- **Only the endpoints listed above are routed.** `/v1/completions`, `/v1/embeddings`, `/v1/models/<x>/...` and
+  anything else a client might try return a 404 that names the path — the router does not pass unknown paths
+  through to the hot engine. If a tool needs a text-completion endpoint, that is a small addition to
+  `Handler.do_POST`, not a config.
+- The cold-start wait is inside the request. A client with a 60 s timeout that does not read streaming comments
+  will give up on a 3-minute MoE load. Prefer `/router/load` before you send, or use a streaming request.
+- `needs_mib` is per model, so if one llama.cpp router hosts both a 16 GB and a 6 GB model you must set both
+  numbers correctly or the cheap one will be blocked behind the expensive one's gate.
+- The `409 engine_busy` refusal is per-swap, and it is deliberately not a queue — no request is silently held
+  while another finishes. Queuing is a policy decision your client is better placed to make.
+- Model ids are the join between everything. Rename one in the engine without renaming it in `registry.json` and
+  the router will report the model as unknown rather than guess.
+
+
+## Files
+
+| | |
+|---|---|
+| `proxy.py` | the router: engine lifecycle, VRAM gate, routing, SSE relay, both API shapes |
+| `telemetry.py` | NVML + OS hardware sampler for the Monitor tab; optional, the page degrades without it |
+| `registry.example.json` | template — copy to `registry.json` |
+| `run-router.bat` | starts the proxy relative to its own folder |
+| `stop-all.ps1` / `.bat` | surgical shutdown that reads the same registry |
+| `busytest.py` | proves a swap request is refused while an engine is mid-answer |
+| `ui/` | the chat page, the backends page, the monitor feed, and their CSS/JS |
+
+
+## License
+
+**No license has been chosen for the router code yet — so, by default, all rights are reserved.** Pick one before
+you reuse or fork it.
+
+Two pieces are separately encumbered and worth reading before you decide:
+
+- **`ui/fonts/`** ships two `.woff2` files of *Outfit*, which is **SIL Open Font License 1.1**. The license text is
+  included at `ui/fonts/OFL.txt` and must travel with the fonts.
+- **`ui/web/`** was written for this project, and its look was modelled on the web app of the Strata engine, which
+  is distributed **without a license file**. I could not verify from the installed copy which rules and components
+  were adapted and which were written from scratch, so treat the styling as *adapted, attribution unclear* rather
+  than as free MIT content. If you need clean rights here, replace `ui/web/tokens.css`, `components.css` and
+  `app.css` with your own design tokens; nothing in `proxy.py` depends on them.
+
+The llama.cpp and Strata engines themselves are separate projects you install independently — this repo contains
+no engine code and no model weights.

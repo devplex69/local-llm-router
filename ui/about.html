@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Router - Backends</title>
+<link rel="stylesheet" href="/web/tokens.css">
+<link rel="stylesheet" href="/web/components.css">
+<link rel="stylesheet" href="/web/app.css">
+<link rel="stylesheet" href="/web/router.css">
+<script>
+  // the theme before the first paint: the saved choice, else the system's
+  try {
+    const t = localStorage.getItem("router.theme") ||
+      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.dataset.theme = t;
+  } catch (e) {}
+</script>
+</head>
+<body>
+<header class="st-header">
+  <span class="st-header__brand">Local Router</span>
+  <nav class="st-tabs" role="tablist" aria-label="Views">
+    <a class="st-tab" href="/" data-tab="chat">
+      <svg class="st-icon st-icon--sm"><use href="/web/sprite.svg#i-chat"/></svg>Chat</a>
+    <a class="st-tab" href="/#monitor" data-tab="monitor">
+      <svg class="st-icon st-icon--sm"><use href="/web/sprite.svg#i-activity"/></svg>Monitor</a>
+    <a class="st-tab" href="/about" data-tab="backends" aria-selected="true">
+      <svg class="st-icon st-icon--sm"><use href="/web/sprite.svg#i-gpu"/></svg>Backends</a>
+  </nav>
+  <span class="st-header__spacer"></span>
+  <span class="st-pill" id="pill" data-state="idle" role="status" aria-live="polite">
+    <span class="st-pill__dot"></span><span id="pill-text">Connecting&hellip;</span></span>
+  <button class="st-btn st-btn--icon" id="theme-btn" title="Light / dark" aria-label="Switch between light and dark">
+    <svg class="st-icon"><use id="theme-icon" href="/web/sprite.svg#i-moon"/></svg></button>
+</header>
+
+<main>
+  <section class="view view--about">
+    <div class="monitor">
+      <div class="st-card">
+        <span class="card-title">Router</span>
+        <dl class="facts" id="facts-proxy"></dl>
+      </div>
+
+      <div class="st-card">
+        <span class="card-title">Point an app at this</span>
+        <p class="muted small">The values to type into an app's <i>Custom provider</i> form. Built from what the router
+          is serving right now, so it cannot drift from the registry.</p>
+        <dl class="facts" id="facts-provider"></dl>
+        <div class="be-card__lbl">Models - one row per <i>Add model</i>; tick the boxes as shown</div>
+        <div class="table-wrap"><table class="st-table">
+          <thead><tr><th style="width:280px">ID</th><th>Name</th><th style="width:90px">Reasoning</th>
+            <th style="width:80px">Image</th><th style="width:150px">Engine</th></tr></thead>
+          <tbody id="provider-models"></tbody>
+        </table></div>
+        <p class="muted small" id="provider-notes"></p>
+      </div>
+
+      <div class="metrics" id="metrics">
+        <!-- filled by page.js: Speed, GPU load, VRAM, GPU temp, Power, PCIe, CPU, Disk read -->
+      </div>
+
+      <div id="bes"></div>
+
+      <div class="st-card req-card">
+        <span class="card-title">Requests through this proxy</span>
+        <div class="table-wrap">
+          <table class="st-table">
+            <thead><tr><th>Time</th><th>Engine</th><th>Model</th><th class="num">Stream</th><th class="num">Output</th>
+              <th class="num">Tok/s</th><th class="num">Seconds</th></tr></thead>
+            <tbody id="req-body"><tr><td colspan="7" class="muted">No requests yet</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="st-card">
+        <span class="card-title">Router log</span>
+        <ul class="log-list" id="log-list"><li class="muted">nothing yet</li></ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="st-toasts" id="toasts" aria-live="polite"></div>
+<script src="/web/page.js"></script>
+<script src="/web/about.js"></script>
+</body>
+</html>

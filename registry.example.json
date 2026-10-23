@@ -1,0 +1,59 @@
+{
+  "port": 8090,
+  "backends": [
+    {
+      "name": "llama-router",
+      "kind": "llama",
+      "port": 8082,
+      "cwd": "X:\\llama-cpp",
+      "needs_mib": 16500,
+      "ready_timeout": 900,
+      "log": "X:\\router\\logs\\llama-router.log",
+      "cmd": [
+        "X:\\llama-cpp\\llama-server.exe",
+        "--host", "127.0.0.1",
+        "--port", "8082",
+        "--models-preset", "X:\\llama-cpp\\models-preset.ini",
+        "--models-max", "1",
+        "--jinja",
+        "-np", "1",
+        "-t", "16",
+        "--log-file", "X:\\llama-cpp\\router.log"
+      ],
+      "models": [
+        {
+          "id": "example-27b",
+          "needs_mib": 16500,
+          "label": "Example 27B dense model, one-line description the UI shows in the picker"
+        },
+        {
+          "id": "example-9b",
+          "needs_mib": 7000,
+          "label": "Same llama.cpp router, a smaller model - note the lower needs_mib"
+        }
+      ]
+    },
+    {
+      "name": "strata-a",
+      "kind": "strata",
+      "port": 8085,
+      "cwd": "X:\\Strata",
+      "needs_mib": 19500,
+      "ready_timeout": 420,
+      "log": "X:\\router\\logs\\strata-a.log",
+      "cmd": [
+        "X:\\Strata\\.venv\\Scripts\\python.exe",
+        "X:\\Strata\\serve\\server.py",
+        "--engine", "strata",
+        "--config", "X:\\Strata\\strata-config-a.json",
+        "--port", "8085"
+      ],
+      "models": [
+        {
+          "id": "example-moe-uncensored",
+          "label": "Example MoE model on a second engine. `id` must be the id that engine's /v1/models advertises."
+        }
+      ]
+    }
+  ]
+}
