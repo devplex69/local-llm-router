@@ -1,4 +1,9 @@
-"""serve/telemetry.py - hardware readings for the web app's Monitor tab (idea from PR #22 by code-martin).
+"""Hardware readings for the web app's Monitor tab.
+
+The code below is verbatim Strata v0.1.13 `serve/telemetry.py` - MIT, Copyright (c) 2026 Niko1221 and the Strata
+contributors; see THIRD_PARTY_LICENSES.md. Upstream's blob at that tag is
+1bb9b2925c0dc1ff124902872d0d64df3f3273e8; the only line changed here is this docstring. Upstream credits the tab's
+idea to @code-martin (PR #22). The router just imports it, as a module sitting next to proxy.py.
 
 A background thread samples once a second and keeps the last 60 readings of each series for the sparklines:
 - GPU: NVIDIA's own NVML library (nvml.dll / libnvidia-ml.so.1, installed with every driver) through ctypes, so no

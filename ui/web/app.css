@@ -1,5 +1,6 @@
-/* Router UI - layout on top of tokens.css + components.css. Colours, type, radii and
-   shadows come only from the tokens. */
+/* Strata web app - layout on top of tokens.css + components.css. Copied from Strata v0.1.13 serve/web/app.css
+   (MIT, (c) 2026 Niko1221 and the Strata contributors - see THIRD_PARTY_LICENSES.md); only this header differs.
+   Colours, type, radii and shadows come only from the kit's tokens. */
 [hidden] { display: none !important; }
 html, body { height: 100%; }
 body { display: flex; flex-direction: column; overflow: hidden; }

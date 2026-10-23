@@ -1,7 +1,10 @@
 // ui/web/page.js - shared by both router pages: the chat page (/) and the backends page (/about).
-// Helpers, theme, copy buttons, toasts, the status pill and the eight hardware tiles, all built on tokens.css
-// (tokens.css + components.css + app.css). Loaded before the page's own script; they are one global scope, so a
-// name declared here must not be declared again there.
+// Theme bootstrap, copy buttons, toasts, the status pill and the eight hardware tiles, built on the kit in
+// tokens.css + components.css + app.css. Loaded before the page's own script; they are one global scope, so a name
+// declared here must not be declared again there.
+// Most of this file is adapted from Strata v0.1.13 serve/web/app.js - MIT, (c) 2026 Niko1221 and the Strata
+// contributors; see THIRD_PARTY_LICENSES.md. The toast map, clipboard handler, sparkline builder and Monitor tile
+// definitions are verbatim from it; the engine/router parts are not.
 "use strict";
 
 const $ = (id) => document.getElementById(id);

@@ -1,6 +1,7 @@
 // ui/web/router.js - the chat page and the Monitor tab of the local router.
 // Helpers, theme, pill and the hardware tiles come from page.js; the endpoints are the router's:
 // /v1/models, /router/metrics, /router/load, /router/stop, /v1/chat/completions.
+// Written here; three statements are reused from Strata v0.1.13 serve/web/app.js (MIT - THIRD_PARTY_LICENSES.md).
 "use strict";
 
 // ---------------------------------------------------------------------- tabs
