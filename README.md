@@ -197,6 +197,15 @@ lines), `v0.1.45` (430,671 / 7,159) and `v0.2.3.1` (520,530 / 8,607) — and com
   block written against an older Strata still starts on a newer one.
 - **`--config` means the same thing at all three**: its help text is byte-identical — *"strata engine config (JSON: exe,
   args, cwd, tokenizer, model_name), written by setup.py"*. So let Strata's own setup write that file; don't hand-roll it.
+  The loader is also still a plain `json.loads` with no required-key schema (`read_config` / `parse_config_text` at
+  `v0.2.3.1`), so a config file written for an older tag parses on a newer one.
+- **The engine command line survives too.** `serve/server.py` only builds the `--engine/--config/--port` part; the
+  model-loading flags live inside the config's `args` list and go to the engine binary. So I checked the engine's own
+  argument parser (`src/program/generate.cpp`) at `v0.2.3.1`: it grew from 3,939 lines to 17,028, and every flag a real
+  working launch used on `0.1.x` is still a live parse branch there — `--pack`, `--native`, `--native-dense-gguf`,
+  `--ple-gguf`, `--pool-workers`, `--expert-profile`, `--expert-cache`, `--expert-cache-cpu-order`, `--prefill`,
+  `--spec`, `--spec-min-p`, `--mtp`, `--max-context`, `--kv`. That is source evidence, not a booted engine: a *newer*
+  engine binary can still change what those values do.
 - **`--engine` defaults to `mock`, at every version.** That is the one way to get a confidently-wrong setup: drop the
   flag and the engine starts, answers `/health`, and produces tokens — from a fake engine. The router's liveness probe
   cannot catch that, because it only checks that real tokens come back. Always pass `--engine strata` explicitly.
@@ -225,8 +234,9 @@ and the router handles the swapping exactly the same; the only loss is sharing o
 ### What is honest here
 
 **Run** on: Windows 11, RTX 4090, one llama.cpp CUDA build (b11201) and Strata 0.1.x. Everything in the Strata list
-above comes from reading `serve/server.py` at those tags — `v0.2.3.1` itself has not been started behind this router on
-my machine. If you do run it there and something has moved, that is worth an issue.
+above comes from reading Strata's source at those tags — `serve/server.py`, and for the flags `src/program/generate.cpp`
+and `src/kernels/cuda/iq_kernels.cu`. `v0.2.3.1` itself has not been started behind this router on my machine. If you do
+run it there and something has moved, that is worth an issue.
 
 
 ## Notable limits
