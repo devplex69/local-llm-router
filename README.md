@@ -204,25 +204,32 @@ reports `busy`, then fires a request for a cold model and shows the clean `409` 
 | `busytest.py` | proves a swap request is refused while an engine is mid-answer |
 | `ui/` | the chat page, the backends page, the monitor feed, and their CSS/JS — partly Strata's, see `THIRD_PARTY_LICENSES.md` |
 | `THIRD_PARTY_LICENSES.md` | exactly which files come from Strata v0.1.13, with blob hashes, plus the MIT and OFL texts |
+| `CREDITS.md` | who wrote what here, including the font authors and the dashboard idea this UI grew from |
+| `LICENSE` | MIT, this repo's own code |
 
 
 ## License
 
-**No license has been chosen for this repo's own code yet — so, by default, all rights are reserved.** Pick one before
-you reuse or fork it. MIT would be compatible with everything already in here.
+**The router's own code is MIT** — see [LICENSE](LICENSE), `Copyright (c) 2026 devplex69`. Use it, fork it, ship it in
+your stack; the only condition is that the copyright line and permission notice travel with it.
 
-Parts of this repo are **not** original and are already licensed, so read [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)
-before you decide or fork:
+That notice has to travel two more layers, because parts of this repo are **not** original:
 
 - `telemetry.py`, `ui/web/tokens.css`, `ui/web/components.css`, `ui/web/app.css`, `ui/web/sprite.svg`, `ui/index.html`
   and most of `ui/web/page.js` are taken from [Strata](https://github.com/Niko1221/Strata) tag `v0.1.13`
-  (**MIT, Copyright (c) 2026 Niko1221 and the Strata contributors**). The notice and license text are included there,
-  and each file carries a provenance header. That file list is the honest one — an earlier draft of this README called
-  the styling "adapted, attribution unclear", which was wrong: the copies are verifiable against upstream's git tree.
+  (**MIT, Copyright (c) 2026 Niko1221 and the Strata contributors**). Their license text and per-file provenance
+  headers are in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md), with upstream blob hashes so you can verify the
+  copies yourself. An earlier draft of this README called the styling "adapted, attribution unclear", which was
+  wrong — the copies are verifiable against upstream's git tree.
 - `ui/fonts/` ships two `.woff2` files of *Outfit*, **SIL Open Font License 1.1**; the text is at `ui/fonts/OFL.txt`
   and must travel with the fonts.
-- `proxy.py` shares no meaningful code with Strata's `serve/server.py` (4 of its 317 long lines match, all stdlib
-  boilerplate), and `ui/web/router.css`, `ui/about.html`, the scripts and `busytest.py` are written here.
+- The Monitor tab's concept traces to **[@code-martin's Strata PR #22](https://github.com/Niko1221/Strata/pull/22)**,
+  per Strata's own credits, and is preserved in `telemetry.py`'s header.
+
+Original here: `proxy.py` and the registry schema, `run-router.bat`, `stop-all.ps1` / `.bat`, `busytest.py`,
+`ui/web/router.css`, `ui/web/about.js`, `ui/about.html`, and the chat/monitor logic in `ui/web/router.js`. `proxy.py`
+shares no meaningful code with Strata's `serve/server.py` (4 of its 317 long lines match, all stdlib boilerplate).
+Full accounting in [CREDITS.md](CREDITS.md).
 
 If you need a repo with none of Strata's code in it, `THIRD_PARTY_LICENSES.md` says which files to drop or replace and
 what breaks when you do (cosmetic, plus the Monitor tiles).

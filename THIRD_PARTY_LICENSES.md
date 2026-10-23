@@ -5,6 +5,9 @@ Most of this repo is original - `proxy.py`, `registry.example.json`, `run-router
 `serve/server.py` either (of its 317 long lines, exactly 4 match upstream, and all four are stdlib boilerplate like
 `from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer`).
 
+This repo's own code is MIT as well (`LICENSE`, Copyright (c) 2026 devplex69); [CREDITS.md](CREDITS.md) is the prose
+version of this list.
+
 But the UI, and the hardware sampler behind the Monitor tab, are **not** written here. They come from
 [Strata](https://github.com/Niko1221/Strata), the MoE inference engine this router was built to sit in front of.
 Strata is under the MIT license, reproduced in full at the bottom, and MIT requires this notice and its copyright
